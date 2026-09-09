@@ -1,4 +1,7 @@
+
 import 'package:flutter/material.dart';
+import 'package:kitchensop/screens/main_navigation_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
       TextEditingController();
 
   bool isPasswordVisible = false;
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -25,21 +29,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void login() {
-    if (_formKey.currentState!.validate()) {
-      // Authentication will be connected later.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login system coming next...'),
-        ),
-      );
+  // ==========================================
+  // LOGIN
+  // ==========================================
+  Future<void> login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    // Temporary delay.
+    // Later this will be replaced with SQLite authentication.
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = false;
+    });
+
+    // ==========================================
+    // GO TO MAIN APPLICATION
+    // ==========================================
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MainNavigationScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
+
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -47,8 +74,10 @@ class _LoginScreenState extends State<LoginScreen> {
               horizontal: 28,
               vertical: 30,
             ),
+
             child: Form(
               key: _formKey,
+
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -61,21 +90,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 90,
                       height: 90,
                       padding: const EdgeInsets.all(15),
+
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius:
+                            BorderRadius.circular(24),
+
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color:
+                                Colors.black.withOpacity(0.08),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
                         ],
                       ),
+
                       child: Image.asset(
                         'assets/images/kitchenops_logo.png',
                         fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
+
+                        errorBuilder:
+                            (context, error, stackTrace) {
                           return const Icon(
                             Icons.restaurant_menu_rounded,
                             size: 45,
@@ -113,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 35),
 
                   // ==========================================
-                  // EMAIL
+                  // EMAIL LABEL
                   // ==========================================
                   const Text(
                     'Email Address',
@@ -126,36 +162,50 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 8),
 
+                  // ==========================================
+                  // EMAIL FIELD
+                  // ==========================================
                   TextFormField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
+
                     decoration: InputDecoration(
                       hintText: 'Enter your email',
+
                       prefixIcon: const Icon(
                         Icons.email_outlined,
                       ),
+
                       filled: true,
                       fillColor: Colors.white,
+
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: BorderSide.none,
                       ),
+
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: const BorderSide(
                           color: Color(0xFFE5E7EB),
                         ),
                       ),
+
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: const BorderSide(
                           color: Color(0xFFF59E0B),
                           width: 1.5,
                         ),
                       ),
                     ),
+
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
+                      if (value == null ||
+                          value.trim().isEmpty) {
                         return 'Please enter your email';
                       }
 
@@ -170,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 22),
 
                   // ==========================================
-                  // PASSWORD
+                  // PASSWORD LABEL
                   // ==========================================
                   const Text(
                     'Password',
@@ -183,14 +233,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 8),
 
+                  // ==========================================
+                  // PASSWORD FIELD
+                  // ==========================================
                   TextFormField(
                     controller: passwordController,
+
                     obscureText: !isPasswordVisible,
+
                     decoration: InputDecoration(
                       hintText: 'Enter your password',
+
                       prefixIcon: const Icon(
                         Icons.lock_outline_rounded,
                       ),
+
                       suffixIcon: IconButton(
                         onPressed: () {
                           setState(() {
@@ -198,34 +255,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                 !isPasswordVisible;
                           });
                         },
+
                         icon: Icon(
                           isPasswordVisible
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                         ),
                       ),
+
                       filled: true,
                       fillColor: Colors.white,
+
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: BorderSide.none,
                       ),
+
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: const BorderSide(
                           color: Color(0xFFE5E7EB),
                         ),
                       ),
+
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                         borderSide: const BorderSide(
                           color: Color(0xFFF59E0B),
                           width: 1.5,
                         ),
                       ),
                     ),
+
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null ||
+                          value.isEmpty) {
                         return 'Please enter your password';
                       }
 
@@ -244,12 +311,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   // ==========================================
                   Align(
                     alignment: Alignment.centerRight,
+
                     child: TextButton(
                       onPressed: () {
-                        // Forgot password will be added later.
+                        // Will be implemented later.
                       },
+
                       child: const Text(
                         'Forgot Password?',
+
                         style: TextStyle(
                           color: Color(0xFFD97706),
                           fontWeight: FontWeight.w600,
@@ -266,23 +336,50 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 55,
+
                     child: ElevatedButton(
-                      onPressed: login,
+                      onPressed: isLoading ? null : login,
+
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
+                        backgroundColor:
+                            const Color(0xFFF59E0B),
+
                         foregroundColor: Colors.white,
+
+                        disabledBackgroundColor:
+                            const Color(0xFFFBBF24),
+
                         elevation: 0,
+
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius:
+                              BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text(
-                        'Sign In',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 23,
+                              height: 23,
+
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<
+                                        Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Sign In',
+
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
 
@@ -292,13 +389,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   // FOOTER
                   // ==========================================
                   Center(
-                    child: Text(
-                      'KitchenOps',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'KitchenOps',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        const SizedBox(height: 5),
+
+                        Text(
+                          'Restaurant Recipe & Kitchen Management',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
