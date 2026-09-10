@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+
+import 'package:kitchensop/database/user.dart';
 import 'package:kitchensop/screens/Profile%20Screen.dart';
 
 import '../models/recipe.dart';
 import 'home_screen.dart';
 import 'saved_screen.dart';
-
 import 'more_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final User user;
+
+  const MainNavigationScreen({
+    super.key,
+    required this.user,
+  });
 
   @override
   State<MainNavigationScreen> createState() =>
@@ -33,7 +39,6 @@ class _MainNavigationScreenState
       image: 'assets/images/burger.jpg',
       preparationTime: 15,
     ),
-
     Recipe(
       id: 2,
       name: 'Chicken Pizza',
@@ -43,7 +48,6 @@ class _MainNavigationScreenState
       image: 'assets/images/pizza.jpg',
       preparationTime: 25,
     ),
-
     Recipe(
       id: 3,
       name: 'French Fries',
@@ -53,7 +57,6 @@ class _MainNavigationScreenState
       image: 'assets/images/fries.jpg',
       preparationTime: 10,
     ),
-
     Recipe(
       id: 4,
       name: 'Fresh Lemonade',
@@ -70,7 +73,8 @@ class _MainNavigationScreenState
   // ==========================================
   void toggleFavorite(Recipe recipe) {
     setState(() {
-      recipe.isFavorite = !recipe.isFavorite;
+      recipe.isFavorite =
+          !recipe.isFavorite;
     });
   }
 
@@ -82,6 +86,7 @@ class _MainNavigationScreenState
       HomeScreen(
         recipes: recipes,
         onFavorite: toggleFavorite,
+        user: widget.user,
       ),
 
       SavedScreen(
@@ -89,8 +94,8 @@ class _MainNavigationScreenState
         onFavorite: toggleFavorite,
       ),
 
-   
       const ProfileScreen(),
+
       const MoreScreen(),
     ];
   }
@@ -103,21 +108,23 @@ class _MainNavigationScreenState
         children: screens,
       ),
 
-      // ==========================================
-      // BOTTOM NAVIGATION
-      // ==========================================
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+      bottomNavigationBar:
+          NavigationBar(
+        selectedIndex:
+            currentIndex,
 
-        onDestinationSelected: (index) {
+        onDestinationSelected:
+            (index) {
           setState(() {
             currentIndex = index;
           });
         },
 
-        backgroundColor: Colors.white,
+        backgroundColor:
+            Colors.white,
 
-        indicatorColor: const Color(0xFFFFF3D6),
+        indicatorColor:
+            const Color(0xFFFFF3D6),
 
         elevation: 8,
 
@@ -127,9 +134,11 @@ class _MainNavigationScreenState
             icon: Icon(
               Icons.home_outlined,
             ),
-            selectedIcon: Icon(
+            selectedIcon:
+                Icon(
               Icons.home_rounded,
-              color: Color(0xFFF59E0B),
+              color:
+                  Color(0xFFF59E0B),
             ),
             label: 'Home',
           ),
@@ -138,9 +147,11 @@ class _MainNavigationScreenState
             icon: Icon(
               Icons.favorite_border_rounded,
             ),
-            selectedIcon: Icon(
+            selectedIcon:
+                Icon(
               Icons.favorite_rounded,
-              color: Color(0xFFF59E0B),
+              color:
+                  Color(0xFFF59E0B),
             ),
             label: 'Saved',
           ),
@@ -149,9 +160,11 @@ class _MainNavigationScreenState
             icon: Icon(
               Icons.person_outline_rounded,
             ),
-            selectedIcon: Icon(
+            selectedIcon:
+                Icon(
               Icons.person_rounded,
-              color: Color(0xFFF59E0B),
+              color:
+                  Color(0xFFF59E0B),
             ),
             label: 'Profile',
           ),
@@ -160,9 +173,11 @@ class _MainNavigationScreenState
             icon: Icon(
               Icons.more_horiz_rounded,
             ),
-            selectedIcon: Icon(
+            selectedIcon:
+                Icon(
               Icons.more_horiz_rounded,
-              color: Color(0xFFF59E0B),
+              color:
+                  Color(0xFFF59E0B),
             ),
             label: 'More',
           ),

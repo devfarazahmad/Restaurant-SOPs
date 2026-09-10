@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+
+import 'package:kitchensop/database/user.dart';
 import 'package:kitchensop/models/category_card.dart';
 import 'package:kitchensop/models/recipe_card.dart';
-import '../models/recipe.dart';
 
+import '../models/recipe.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Recipe> recipes;
   final Function(Recipe) onFavorite;
+  final User user;
 
   const HomeScreen({
     super.key,
     required this.recipes,
     required this.onFavorite,
+    required this.user,
   });
 
   @override
@@ -31,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // ==========================================
+  // FILTER RECIPES
+  // ==========================================
   List<Recipe> get filteredRecipes {
     if (searchText.isEmpty) {
       return widget.recipes;
@@ -46,6 +53,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  // ==========================================
+  // CREATE RECIPE
+  // ==========================================
+  void createRecipe() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Create Recipe screen will be added next.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,9 +74,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 100),
+          padding: const EdgeInsets.fromLTRB(
+            20,
+            18,
+            20,
+            120,
+          ),
+
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
             children: [
 
               // ==========================================
@@ -64,20 +93,28 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
 
+                  // ==========================================
+                  // LOGO
+                  // ==========================================
                   Container(
                     width: 48,
                     height: 48,
                     padding: const EdgeInsets.all(8),
+
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius:
+                          BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFFE5E7EB),
+                        color:
+                            const Color(0xFFE5E7EB),
                       ),
                     ),
+
                     child: Image.asset(
                       'assets/images/kitchenops_logo.png',
                       fit: BoxFit.contain,
+
                       errorBuilder:
                           (context, error, stackTrace) {
                         return const Icon(
@@ -90,46 +127,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(width: 12),
 
-                  const Expanded(
+                  // ==========================================
+                  // GREETING
+                  // ==========================================
+                  Expanded(
                     child: Column(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
+
                       children: [
-                        Text(
+
+                        const Text(
                           'Good Morning 👋',
                           style: TextStyle(
-                            color: Color(0xFF6B7280),
+                            color:
+                                Color(0xFF6B7280),
                             fontSize: 12,
                           ),
                         ),
-                        SizedBox(height: 3),
+
+                        const SizedBox(height: 3),
+
                         Text(
-                          'KitchenOps',
-                          style: TextStyle(
-                            color: Color(0xFF111827),
+                          widget.user.name,
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
+
+                          style: const TextStyle(
+                            color:
+                                Color(0xFF111827),
                             fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   ),
 
+                  // ==========================================
+                  // NOTIFICATION
+                  // ==========================================
                   Container(
                     width: 45,
                     height: 45,
+
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius:
+                          BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFFE5E7EB),
+                        color:
+                            const Color(0xFFE5E7EB),
                       ),
                     ),
+
                     child: IconButton(
                       onPressed: () {},
+
                       icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: Color(0xFF374151),
+                        Icons
+                            .notifications_none_rounded,
+                        color:
+                            Color(0xFF374151),
                       ),
                     ),
                   ),
@@ -163,53 +224,130 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
 
               // ==========================================
+              // CREATE RECIPE BUTTON
+              //
+              // ONLY CHEF MASTER CAN SEE THIS
+              // ==========================================
+              if (widget.user.isChefMaster) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+
+                  child: ElevatedButton.icon(
+                    onPressed: createRecipe,
+
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      size: 22,
+                    ),
+
+                    label: const Text(
+                      'Create Recipe',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.w700,
+                      ),
+                    ),
+
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          const Color(0xFFF59E0B),
+
+                      foregroundColor:
+                          Colors.white,
+
+                      elevation: 0,
+
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+              ],
+
+              // ==========================================
               // SEARCH
               // ==========================================
               TextField(
                 controller: searchController,
+
                 onChanged: (value) {
                   setState(() {
                     searchText = value;
                   });
                 },
+
                 decoration: InputDecoration(
                   hintText: 'Search recipes...',
+
                   prefixIcon: const Icon(
                     Icons.search_rounded,
-                    color: Color(0xFF9CA3AF),
+                    color:
+                        Color(0xFF9CA3AF),
                   ),
-                  suffixIcon: searchText.isNotEmpty
-                      ? IconButton(
-                          onPressed: () {
-                            searchController.clear();
 
-                            setState(() {
-                              searchText = '';
-                            });
-                          },
-                          icon: const Icon(
-                            Icons.close_rounded,
-                          ),
-                        )
-                      : null,
+                  suffixIcon:
+                      searchText.isNotEmpty
+                          ? IconButton(
+                              onPressed: () {
+                                searchController
+                                    .clear();
+
+                                setState(() {
+                                  searchText = '';
+                                });
+                              },
+
+                              icon: const Icon(
+                                Icons.close_rounded,
+                              ),
+                            )
+                          : null,
+
                   filled: true,
+
                   fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE5E7EB),
+
+                  border:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(16),
+
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFFE5E7EB),
                     ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE5E7EB),
+
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(16),
+
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFFE5E7EB),
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFF59E0B),
+
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(16),
+
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFFF59E0B),
                       width: 1.5,
                     ),
                   ),
@@ -223,6 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // ==========================================
               const Text(
                 'Categories',
+
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -234,43 +373,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
               SizedBox(
                 height: 105,
+
                 child: ListView(
-                  scrollDirection: Axis.horizontal,
+                  scrollDirection:
+                      Axis.horizontal,
+
                   children: [
 
                     CategoryCard(
                       name: 'Burgers',
-                      icon: Icons.lunch_dining_rounded,
+                      icon:
+                          Icons.lunch_dining_rounded,
                       onTap: () {},
                     ),
 
                     CategoryCard(
                       name: 'Pizza',
-                      icon: Icons.local_pizza_rounded,
+                      icon:
+                          Icons.local_pizza_rounded,
                       onTap: () {},
                     ),
 
                     CategoryCard(
                       name: 'Chicken',
-                      icon: Icons.set_meal_rounded,
+                      icon:
+                          Icons.set_meal_rounded,
                       onTap: () {},
                     ),
 
                     CategoryCard(
                       name: 'Fries',
-                      icon: Icons.fastfood_rounded,
+                      icon:
+                          Icons.fastfood_rounded,
                       onTap: () {},
                     ),
 
                     CategoryCard(
                       name: 'Drinks',
-                      icon: Icons.local_drink_rounded,
+                      icon:
+                          Icons.local_drink_rounded,
                       onTap: () {},
                     ),
 
                     CategoryCard(
                       name: 'Desserts',
-                      icon: Icons.cake_rounded,
+                      icon:
+                          Icons.cake_rounded,
                       onTap: () {},
                     ),
                   ],
@@ -284,21 +432,27 @@ class _HomeScreenState extends State<HomeScreen> {
               // ==========================================
               Row(
                 children: [
+
                   const Expanded(
                     child: Text(
                       'All Recipes',
+
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF111827),
+                        fontWeight:
+                            FontWeight.bold,
+                        color:
+                            Color(0xFF111827),
                       ),
                     ),
                   ),
 
                   Text(
                     '${filteredRecipes.length} recipes',
+
                     style: const TextStyle(
-                      color: Color(0xFF9CA3AF),
+                      color:
+                          Color(0xFF9CA3AF),
                       fontSize: 12,
                     ),
                   ),
@@ -311,52 +465,77 @@ class _HomeScreenState extends State<HomeScreen> {
               // RECIPES
               // ==========================================
               if (filteredRecipes.isEmpty)
+
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(30),
+
+                  padding:
+                      const EdgeInsets.all(30),
+
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+
+                    borderRadius:
+                        BorderRadius.circular(18),
+
                     border: Border.all(
-                      color: const Color(0xFFE5E7EB),
+                      color:
+                          const Color(0xFFE5E7EB),
                     ),
                   ),
+
                   child: const Column(
                     children: [
+
                       Icon(
                         Icons.search_off_rounded,
                         size: 45,
-                        color: Color(0xFF9CA3AF),
+                        color:
+                            Color(0xFF9CA3AF),
                       ),
+
                       SizedBox(height: 12),
+
                       Text(
                         'No recipes found',
+
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
+
                       SizedBox(height: 5),
+
                       Text(
                         'Try searching for another recipe.',
+
                         style: TextStyle(
-                          color: Color(0xFF6B7280),
+                          color:
+                              Color(0xFF6B7280),
                           fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 )
+
               else
+
                 ...filteredRecipes.map(
                   (recipe) => RecipeCard(
                     recipe: recipe,
+
                     onFavorite: () {
                       widget.onFavorite(recipe);
+
                       setState(() {});
                     },
+
                     onTap: () {
-                      // Recipe detail screen will be added next.
+                      // Recipe detail screen
+                      // will be added next.
                     },
                   ),
                 ),
