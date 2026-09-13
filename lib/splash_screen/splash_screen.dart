@@ -1,12 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:kitchensop/screens/role_selection_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:kitchensop/database/database_helper.dart';
-import 'package:kitchensop/database/user.dart';
-import 'package:kitchensop/screens/main_navigation_screen.dart';
+import 'package:kitchensop/screens/role_selection_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,76 +13,37 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
 
-    Timer(
+    _timer = Timer(
       const Duration(seconds: 3),
-      checkSession,
+      _goToRoleSelection,
     );
   }
 
   // ==========================================
-  // CHECK SAVED LOGIN SESSION
+  // GO TO ROLE SELECTION
   // ==========================================
-  Future<void> checkSession() async {
+  void _goToRoleSelection() {
     if (!mounted) return;
 
-    try {
-      final prefs =
-          await SharedPreferences.getInstance();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const RoleSelectionScreen(),
+      ),
+    );
+  }
 
-      final int? userId =
-          prefs.getInt('logged_in_user_id');
-
-      if (userId != null) {
-        final Map<String, dynamic>? userData =
-            await DatabaseHelper.instance
-                .getUserById(userId);
-
-        if (userData != null && mounted) {
-          final User user =
-              User.fromMap(userData);
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  MainNavigationScreen(
-                user: user,
-              ),
-            ),
-          );
-
-          return;
-        }
-      }
-
-      // ==========================================
-      // NO ACTIVE SESSION
-      // ==========================================
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const RoleSelectionScreen(),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const RoleSelectionScreen(),
-        ),
-      );
-    }
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -121,8 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            Colors.black.withOpacity(
+                        color: Colors.black.withOpacity(
                           0.30,
                         ),
                         blurRadius: 30,
@@ -153,7 +109,8 @@ class _SplashScreenState extends State<SplashScreen> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 36,
-                    fontWeight: FontWeight.w700,
+                    fontWeight:
+                        FontWeight.w700,
                     letterSpacing: 0.5,
                   ),
                 ),

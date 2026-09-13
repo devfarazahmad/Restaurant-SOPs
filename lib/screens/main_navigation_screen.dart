@@ -1,12 +1,12 @@
+
 import 'package:flutter/material.dart';
-
+import 'package:kitchensop/database/database_helper.dart';
 import 'package:kitchensop/database/user.dart';
+import 'package:kitchensop/models/recipe.dart';
 import 'package:kitchensop/screens/Profile%20Screen.dart';
-
-import '../models/recipe.dart';
-import 'home_screen.dart';
-import 'saved_screen.dart';
-import 'more_screen.dart';
+import 'package:kitchensop/screens/home_screen.dart';
+import 'package:kitchensop/screens/saved_screen.dart';
+import 'package:kitchensop/screens/more_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final User user;
@@ -23,54 +23,67 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
-
   int currentIndex = 0;
 
-  // ==========================================
-  // TEMPORARY RECIPES
-  // ==========================================
-  final List<Recipe> recipes = [
-    Recipe(
-      id: 1,
-      name: 'Classic Beef Burger',
-      category: 'Burgers',
-      description:
-          'Classic restaurant-style beef burger preparation.',
-      image: 'assets/images/burger.jpg',
-      preparationTime: 15,
-    ),
-    Recipe(
-      id: 2,
-      name: 'Chicken Pizza',
-      category: 'Pizza',
-      description:
-          'Restaurant chicken pizza preparation and assembly.',
-      image: 'assets/images/pizza.jpg',
-      preparationTime: 25,
-    ),
-    Recipe(
-      id: 3,
-      name: 'French Fries',
-      category: 'Fries',
-      description:
-          'Crispy french fries preparation procedure.',
-      image: 'assets/images/fries.jpg',
-      preparationTime: 10,
-    ),
-    Recipe(
-      id: 4,
-      name: 'Fresh Lemonade',
-      category: 'Drinks',
-      description:
-          'Fresh restaurant-style lemonade preparation.',
-      image: 'assets/images/lemonade.jpg',
-      preparationTime: 5,
-    ),
-  ];
+  List<Recipe> recipes = [];
 
-  // ==========================================
+  bool isLoadingRecipes = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    loadRecipes();
+  }
+
+  // ============================================================
+  // LOAD RECIPES FROM SQLITE
+  // ============================================================
+
+  Future<void> loadRecipes() async {
+    try {
+      final data =
+          await DatabaseHelper.instance
+              .getAllRecipes();
+
+      final loadedRecipes = data
+          .map(
+            (map) => Recipe.fromMap(map),
+          )
+          .toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        recipes = loadedRecipes;
+        isLoadingRecipes = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        isLoadingRecipes = false;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not load recipes: $e',
+          ),
+        ),
+      );
+    }
+  }
+
+  // ============================================================
   // FAVORITE
-  // ==========================================
+  // ============================================================
+
   void toggleFavorite(Recipe recipe) {
     setState(() {
       recipe.isFavorite =
@@ -78,15 +91,21 @@ class _MainNavigationScreenState
     });
   }
 
-  // ==========================================
-  // SCREENS
-  // ==========================================
-  List<Widget> get screens {
-    return [
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> screens = [
       HomeScreen(
         recipes: recipes,
-        onFavorite: toggleFavorite,
+
         user: widget.user,
+
+        onFavorite: toggleFavorite,
+
+        onRecipeChanged: loadRecipes,
       ),
 
       SavedScreen(
@@ -94,24 +113,27 @@ class _MainNavigationScreenState
         onFavorite: toggleFavorite,
       ),
 
-      const ProfileScreen(),
+      ProfileScreen(
+        user: widget.user,
+      ),
 
       const MoreScreen(),
     ];
-  }
 
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
-      ),
+      body: isLoadingRecipes
+          ? const Center(
+              child:
+                  CircularProgressIndicator(),
+            )
+          : IndexedStack(
+              index: currentIndex,
+              children: screens,
+            ),
 
       bottomNavigationBar:
           NavigationBar(
-        selectedIndex:
-            currentIndex,
+        selectedIndex: currentIndex,
 
         onDestinationSelected:
             (index) {
@@ -120,64 +142,43 @@ class _MainNavigationScreenState
           });
         },
 
-        backgroundColor:
-            Colors.white,
-
-        indicatorColor:
-            const Color(0xFFFFF3D6),
-
-        elevation: 8,
-
         destinations: const [
-
           NavigationDestination(
             icon: Icon(
               Icons.home_outlined,
             ),
-            selectedIcon:
-                Icon(
-              Icons.home_rounded,
-              color:
-                  Color(0xFFF59E0B),
+            selectedIcon: Icon(
+              Icons.home,
             ),
             label: 'Home',
           ),
 
           NavigationDestination(
             icon: Icon(
-              Icons.favorite_border_rounded,
+              Icons.bookmark_border,
             ),
-            selectedIcon:
-                Icon(
-              Icons.favorite_rounded,
-              color:
-                  Color(0xFFF59E0B),
+            selectedIcon: Icon(
+              Icons.bookmark,
             ),
             label: 'Saved',
           ),
 
           NavigationDestination(
             icon: Icon(
-              Icons.person_outline_rounded,
+              Icons.person_outline,
             ),
-            selectedIcon:
-                Icon(
-              Icons.person_rounded,
-              color:
-                  Color(0xFFF59E0B),
+            selectedIcon: Icon(
+              Icons.person,
             ),
             label: 'Profile',
           ),
 
           NavigationDestination(
             icon: Icon(
-              Icons.more_horiz_rounded,
+              Icons.more_horiz,
             ),
-            selectedIcon:
-                Icon(
-              Icons.more_horiz_rounded,
-              color:
-                  Color(0xFFF59E0B),
+            selectedIcon: Icon(
+              Icons.more_horiz,
             ),
             label: 'More',
           ),

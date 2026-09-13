@@ -72,7 +72,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         name: nameController.text.trim(),
         phone: phoneController.text.trim(),
         email: email,
-        password: passwordController.text,
+        password: passwordController.text, role: '',
       );
 
       if (!mounted) return;

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:kitchensop/screens/role_selection_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kitchensop/database/database_helper.dart';
 import 'package:kitchensop/database/user.dart';
 
 import 'package:kitchensop/login_screen/create_account_screen.dart';
-
-
 import 'package:kitchensop/screens/main_navigation_screen.dart';
+import 'package:kitchensop/screens/role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String selectedRole;
@@ -40,13 +38,20 @@ class _LoginScreenState
   bool isPasswordVisible = false;
   bool isLoading = false;
 
+  // ==========================================
+  // ROLE TITLE
+  // ==========================================
   String get roleTitle {
-    if (widget.selectedRole ==
-        'chef_master') {
-      return 'Chef Master';
-    }
+    switch (widget.selectedRole) {
+      case 'chef_master':
+        return 'Chef Master';
 
-    return 'Kitchen Staff';
+      case 'staff':
+        return 'Kitchen Staff';
+
+      default:
+        return 'Kitchen Staff';
+    }
   }
 
   @override
@@ -60,7 +65,6 @@ class _LoginScreenState
   // LOGIN
   // ==========================================
   Future<void> login() async {
-
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -70,7 +74,6 @@ class _LoginScreenState
     });
 
     try {
-
       final Map<String, dynamic>? userData =
           await DatabaseHelper.instance.login(
         emailController.text.trim(),
@@ -80,11 +83,7 @@ class _LoginScreenState
 
       if (!mounted) return;
 
-      // ==========================================
-      // INVALID LOGIN
-      // ==========================================
       if (userData == null) {
-
         setState(() {
           isLoading = false;
         });
@@ -102,11 +101,14 @@ class _LoginScreenState
         return;
       }
 
+      // ==========================================
+      // CREATE USER OBJECT
+      // ==========================================
       final User user =
           User.fromMap(userData);
 
       // ==========================================
-      // SAVE SESSION
+      // SAVE LOGIN INFORMATION
       // ==========================================
       final prefs =
           await SharedPreferences.getInstance();
@@ -119,6 +121,16 @@ class _LoginScreenState
       await prefs.setString(
         'logged_in_user_role',
         user.role,
+      );
+
+      await prefs.setString(
+        'logged_in_user_name',
+        user.name,
+      );
+
+      await prefs.setString(
+        'logged_in_user_email',
+        user.email,
       );
 
       if (!mounted) return;
@@ -140,9 +152,7 @@ class _LoginScreenState
         ),
         (route) => false,
       );
-
     } catch (e) {
-
       if (!mounted) return;
 
       setState(() {
@@ -150,9 +160,9 @@ class _LoginScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Login failed. Please try again.',
+            'Login failed: $e',
           ),
           behavior:
               SnackBarBehavior.floating,
@@ -165,13 +175,13 @@ class _LoginScreenState
   // CHANGE ROLE
   // ==========================================
   void changeRole() {
-
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (context) =>
             const RoleSelectionScreen(),
       ),
+      (route) => false,
     );
   }
 
@@ -179,7 +189,6 @@ class _LoginScreenState
   // CREATE ACCOUNT
   // ==========================================
   void openCreateAccountScreen() {
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -191,7 +200,6 @@ class _LoginScreenState
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor:
           const Color(0xFFF9FAFB),
@@ -230,7 +238,9 @@ class _LoginScreenState
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black
-                                .withOpacity(0.08),
+                                .withOpacity(
+                              0.08,
+                            ),
                             blurRadius: 20,
                             offset:
                                 const Offset(0, 8),
@@ -241,9 +251,11 @@ class _LoginScreenState
                         'assets/images/kitchenops_logo.png',
                         fit: BoxFit.contain,
                         errorBuilder:
-                            (context,
-                                error,
-                                stackTrace) {
+                            (
+                          context,
+                          error,
+                          stackTrace,
+                        ) {
                           return const Icon(
                             Icons.restaurant_menu_rounded,
                             size: 45,
@@ -282,7 +294,7 @@ class _LoginScreenState
                   const SizedBox(height: 20),
 
                   // ==========================================
-                  // SELECTED ROLE
+                  // ROLE
                   // ==========================================
                   Container(
                     width: double.infinity,
@@ -406,7 +418,6 @@ class _LoginScreenState
                       ),
                     ),
                     validator: (value) {
-
                       if (value == null ||
                           value.trim().isEmpty) {
                         return
@@ -451,8 +462,7 @@ class _LoginScreenState
                           'Enter your password',
                       prefixIcon:
                           const Icon(
-                        Icons
-                            .lock_outline_rounded,
+                        Icons.lock_outline_rounded,
                       ),
                       suffixIcon:
                           IconButton(
@@ -509,7 +519,6 @@ class _LoginScreenState
                       ),
                     ),
                     validator: (value) {
-
                       if (value == null ||
                           value.isEmpty) {
                         return
@@ -547,12 +556,13 @@ class _LoginScreenState
                   const SizedBox(height: 15),
 
                   // ==========================================
-                  // LOGIN
+                  // LOGIN BUTTON
                   // ==========================================
                   SizedBox(
                     width: double.infinity,
                     height: 55,
-                    child: ElevatedButton(
+                    child:
+                        ElevatedButton(
                       onPressed:
                           isLoading
                               ? null

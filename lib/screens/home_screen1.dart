@@ -5,15 +5,14 @@ import 'package:kitchensop/models/category_card.dart';
 import 'package:kitchensop/models/recipe_card.dart';
 
 import 'package:kitchensop/screens/create_recipe_screen.dart';
+import 'package:kitchensop/screens/recipe_detail_screen.dart';
 
 import '../models/recipe.dart';
 
 class HomeScreen extends StatefulWidget {
-
   final List<Recipe> recipes;
 
-  final Function(Recipe)
-      onFavorite;
+  final Function(Recipe) onFavorite;
 
   final User user;
 
@@ -22,13 +21,9 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({
     super.key,
-
     required this.recipes,
-
     required this.onFavorite,
-
     required this.user,
-
     required this.onRecipeChanged,
   });
 
@@ -49,16 +44,13 @@ class _HomeScreenState
   @override
   void dispose() {
     searchController.dispose();
-
     super.dispose();
   }
 
   // ==========================================
   // FILTER RECIPES
   // ==========================================
-  List<Recipe>
-      get filteredRecipes {
-
+  List<Recipe> get filteredRecipes {
     if (searchText.trim().isEmpty) {
       return widget.recipes;
     }
@@ -71,7 +63,6 @@ class _HomeScreenState
     return widget.recipes
         .where(
           (recipe) {
-
             return recipe.name
                     .toLowerCase()
                     .contains(query) ||
@@ -86,8 +77,10 @@ class _HomeScreenState
   // ==========================================
   // CREATE RECIPE
   // ==========================================
-  Future<void> createRecipe()
-      async {
+  Future<void> createRecipe() async {
+    if (!widget.user.isChefMaster) {
+      return;
+    }
 
     final result =
         await Navigator.push(
@@ -99,9 +92,34 @@ class _HomeScreenState
     );
 
     if (result == true) {
+      await widget.onRecipeChanged();
 
-      await widget
-          .onRecipeChanged();
+      if (!mounted) return;
+
+      setState(() {});
+    }
+  }
+
+  // ==========================================
+  // OPEN RECIPE
+  // ==========================================
+  Future<void> openRecipe(
+    Recipe recipe,
+  ) async {
+    final result =
+        await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            RecipeDetailScreen(
+          recipe: recipe,
+          user: widget.user,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await widget.onRecipeChanged();
 
       if (!mounted) return;
 
@@ -110,10 +128,7 @@ class _HomeScreenState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
           const Color(0xFFF9FAFB),
@@ -128,11 +143,9 @@ class _HomeScreenState
             20,
             120,
           ),
-
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
-
             children: [
 
               // ==========================================
@@ -146,7 +159,6 @@ class _HomeScreenState
                     height: 48,
                     padding:
                         const EdgeInsets.all(8),
-
                     decoration:
                         BoxDecoration(
                       color:
@@ -163,19 +175,16 @@ class _HomeScreenState
                         ),
                       ),
                     ),
-
                     child: Image.asset(
                       'assets/images/kitchenops_logo.png',
                       fit:
                           BoxFit.contain,
-
                       errorBuilder:
                           (
                         context,
                         error,
                         stackTrace,
                       ) {
-
                         return const Icon(
                           Icons
                               .restaurant_menu,
@@ -197,7 +206,6 @@ class _HomeScreenState
                       crossAxisAlignment:
                           CrossAxisAlignment
                               .start,
-
                       children: [
 
                         const Text(
@@ -222,7 +230,6 @@ class _HomeScreenState
                           overflow:
                               TextOverflow
                                   .ellipsis,
-
                           style:
                               const TextStyle(
                             color:
@@ -242,7 +249,6 @@ class _HomeScreenState
                   Container(
                     width: 45,
                     height: 45,
-
                     decoration:
                         BoxDecoration(
                       color:
@@ -259,11 +265,9 @@ class _HomeScreenState
                         ),
                       ),
                     ),
-
                     child:
                         IconButton(
                       onPressed: () {},
-
                       icon:
                           const Icon(
                         Icons
@@ -316,26 +320,22 @@ class _HomeScreenState
               ),
 
               // ==========================================
-              // CHEF MASTER CREATE BUTTON
+              // CHEF MASTER ONLY
               // ==========================================
               if (widget.user.isChefMaster) ...[
-
                 SizedBox(
                   width:
                       double.infinity,
                   height: 52,
-
                   child:
                       ElevatedButton.icon(
                     onPressed:
                         createRecipe,
-
                     icon:
                         const Icon(
                       Icons.add_rounded,
                       size: 22,
                     ),
-
                     label:
                         const Text(
                       'Create Recipe',
@@ -343,14 +343,11 @@ class _HomeScreenState
                           TextStyle(
                         fontSize: 15,
                         fontWeight:
-                            FontWeight
-                                .w700,
+                            FontWeight.w700,
                       ),
                     ),
-
                     style:
-                        ElevatedButton
-                            .styleFrom(
+                        ElevatedButton.styleFrom(
                       backgroundColor:
                           const Color(
                         0xFFF59E0B,
@@ -361,8 +358,7 @@ class _HomeScreenState
                       shape:
                           RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius
-                                .circular(
+                            BorderRadius.circular(
                           14,
                         ),
                       ),
@@ -381,21 +377,17 @@ class _HomeScreenState
               TextField(
                 controller:
                     searchController,
-
                 onChanged:
                     (value) {
-
                   setState(() {
                     searchText =
                         value;
                   });
                 },
-
                 decoration:
                     InputDecoration(
                   hintText:
                       'Search recipes...',
-
                   prefixIcon:
                       const Icon(
                     Icons.search_rounded,
@@ -404,12 +396,10 @@ class _HomeScreenState
                       0xFF9CA3AF,
                     ),
                   ),
-
                   suffixIcon:
                       searchText.isNotEmpty
                           ? IconButton(
                               onPressed: () {
-
                                 searchController
                                     .clear();
 
@@ -418,7 +408,6 @@ class _HomeScreenState
                                       '';
                                 });
                               },
-
                               icon:
                                   const Icon(
                                 Icons
@@ -426,13 +415,10 @@ class _HomeScreenState
                               ),
                             )
                           : null,
-
                   filled:
                       true,
-
                   fillColor:
                       Colors.white,
-
                   border:
                       OutlineInputBorder(
                     borderRadius:
@@ -447,7 +433,6 @@ class _HomeScreenState
                       ),
                     ),
                   ),
-
                   enabledBorder:
                       OutlineInputBorder(
                     borderRadius:
@@ -462,7 +447,6 @@ class _HomeScreenState
                       ),
                     ),
                   ),
-
                   focusedBorder:
                       OutlineInputBorder(
                     borderRadius:
@@ -506,16 +490,13 @@ class _HomeScreenState
 
               SizedBox(
                 height: 105,
-
                 child: ListView(
                   scrollDirection:
                       Axis.horizontal,
-
                   children: [
 
                     CategoryCard(
-                      name:
-                          'Burgers',
+                      name: 'Burgers',
                       icon:
                           Icons
                               .lunch_dining_rounded,
@@ -523,8 +504,7 @@ class _HomeScreenState
                     ),
 
                     CategoryCard(
-                      name:
-                          'Pizza',
+                      name: 'Pizza',
                       icon:
                           Icons
                               .local_pizza_rounded,
@@ -532,8 +512,7 @@ class _HomeScreenState
                     ),
 
                     CategoryCard(
-                      name:
-                          'Chicken',
+                      name: 'Chicken',
                       icon:
                           Icons
                               .set_meal_rounded,
@@ -541,8 +520,7 @@ class _HomeScreenState
                     ),
 
                     CategoryCard(
-                      name:
-                          'Fries',
+                      name: 'Fries',
                       icon:
                           Icons
                               .fastfood_rounded,
@@ -550,8 +528,7 @@ class _HomeScreenState
                     ),
 
                     CategoryCard(
-                      name:
-                          'Drinks',
+                      name: 'Drinks',
                       icon:
                           Icons
                               .local_drink_rounded,
@@ -559,8 +536,7 @@ class _HomeScreenState
                     ),
 
                     CategoryCard(
-                      name:
-                          'Desserts',
+                      name: 'Desserts',
                       icon:
                           Icons
                               .cake_rounded,
@@ -620,26 +596,20 @@ class _HomeScreenState
               // RECIPES
               // ==========================================
               if (filteredRecipes.isEmpty)
-
                 Container(
                   width:
                       double.infinity,
-
                   padding:
                       const EdgeInsets
                           .all(30),
-
                   decoration:
                       BoxDecoration(
                     color:
                         Colors.white,
-
                     borderRadius:
-                        BorderRadius
-                            .circular(
+                        BorderRadius.circular(
                       18,
                     ),
-
                     border:
                         Border.all(
                       color:
@@ -648,7 +618,6 @@ class _HomeScreenState
                       ),
                     ),
                   ),
-
                   child:
                       const Column(
                     children: [
@@ -669,7 +638,6 @@ class _HomeScreenState
 
                       Text(
                         'No recipes yet',
-
                         style:
                             TextStyle(
                           fontWeight:
@@ -685,10 +653,8 @@ class _HomeScreenState
 
                       Text(
                         'Chef Master can create the first recipe.',
-
                         textAlign:
                             TextAlign.center,
-
                         style:
                             TextStyle(
                           color:
@@ -701,19 +667,14 @@ class _HomeScreenState
                     ],
                   ),
                 )
-
               else
-
                 ...filteredRecipes.map(
                   (recipe) {
-
                     return RecipeCard(
                       recipe:
                           recipe,
-
                       onFavorite:
                           () {
-
                         widget
                             .onFavorite(
                           recipe,
@@ -723,10 +684,10 @@ class _HomeScreenState
                           () {},
                         );
                       },
-
                       onTap: () {
-                        // Recipe detail screen
-                        // will be connected next.
+                        openRecipe(
+                          recipe,
+                        );
                       },
                     );
                   },

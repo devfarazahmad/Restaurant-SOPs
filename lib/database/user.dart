@@ -16,21 +16,28 @@ class User {
   ) {
     return User(
       id: map['id'] as int,
-      name: map['name'] as String,
-      email: map['email'] as String,
-      role: map['role'] as String,
+      name:
+          map['name'] as String? ?? '',
+      email:
+          map['email'] as String? ?? '',
+      role:
+          map['role'] as String? ?? 'staff',
     );
   }
 
-  bool get isOwner =>
-      role == 'owner';
+  bool get isOwner {
+    return role == 'owner';
+  }
 
-  bool get isChefMaster =>
-      role == 'chef_master';
+  bool get isChefMaster {
+    return role == 'chef_master';
+  }
 
-  bool get isStaff =>
-      role == 'staff';
+  bool get isStaff {
+    return role == 'staff';
+  }
 
-  bool get canManageRecipes =>
-      isChefMaster;
+  bool get canManageRecipes {
+    return isChefMaster;
+  }
 }
