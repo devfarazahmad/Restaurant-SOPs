@@ -2,11 +2,16 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._internal();
+  static final DatabaseHelper instance =
+      DatabaseHelper._internal();
 
   static Database? _database;
 
   DatabaseHelper._internal();
+
+  // ============================================================
+  // DATABASE
+  // ============================================================
 
   Future<Database> get database async {
     if (_database != null) {
@@ -17,13 +22,21 @@ class DatabaseHelper {
     return _database!;
   }
 
+  // ============================================================
+  // INIT DATABASE
+  // ============================================================
+
   Future<Database> _initDatabase() async {
     final databasePath = await getDatabasesPath();
-    final path = join(databasePath, 'kitchenops.db');
+
+    final path = join(
+      databasePath,
+      'kitchenops.db',
+    );
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -33,9 +46,28 @@ class DatabaseHelper {
   // CREATE DATABASE
   // ============================================================
 
-  Future<void> _onCreate(Database db, int version) async {
+  Future<void> _onCreate(
+    Database db,
+    int version,
+  ) async {
+    await _createUsersTable(db);
+
+    await _createRecipesTable(db);
+
+    await _createDefaultUsers(db);
+
+    await _seedRecipes(db);
+  }
+
+  // ============================================================
+  // USERS TABLE
+  // ============================================================
+
+  Future<void> _createUsersTable(
+    Database db,
+  ) async {
     await db.execute('''
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         phone TEXT NOT NULL DEFAULT '',
@@ -44,29 +76,48 @@ class DatabaseHelper {
         role TEXT NOT NULL
       )
     ''');
+  }
 
+  // ============================================================
+  // RECIPES TABLE
+  // ============================================================
+
+  Future<void> _createRecipesTable(
+    Database db,
+  ) async {
     await db.execute('''
-      CREATE TABLE recipes (
+      CREATE TABLE IF NOT EXISTS recipes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         name TEXT NOT NULL DEFAULT '',
+
         category TEXT NOT NULL DEFAULT '',
+
         description TEXT NOT NULL DEFAULT '',
+
         image TEXT NOT NULL DEFAULT '',
+
         preparation_time INTEGER NOT NULL DEFAULT 0,
+
         ingredients TEXT NOT NULL DEFAULT '',
+
         preparation_steps TEXT NOT NULL DEFAULT '',
+
         cooking_instructions TEXT NOT NULL DEFAULT '',
+
         presentation_instructions TEXT NOT NULL DEFAULT '',
+
         storage_instructions TEXT NOT NULL DEFAULT '',
+
         freezing_instructions TEXT NOT NULL DEFAULT '',
+
         thawing_instructions TEXT NOT NULL DEFAULT '',
+
         created_at TEXT NOT NULL DEFAULT '',
+
         updated_at TEXT NOT NULL DEFAULT ''
       )
     ''');
-
-    await _createDefaultUsers(db);
-    await _seedRecipes(db);
   }
 
   // ============================================================
@@ -78,361 +129,649 @@ class DatabaseHelper {
     int oldVersion,
     int newVersion,
   ) async {
-    // -------------------------
-    // Version 2
-    // -------------------------
+    // ----------------------------------------------------------
+    // VERSION 2
+    // ----------------------------------------------------------
+
     if (oldVersion < 2) {
-      await _addColumnIfMissing(
+      if (!await _columnExists(
         db,
         'users',
         'phone',
-        "TEXT NOT NULL DEFAULT ''",
-      );
-    }
-
-    // -------------------------
-    // Version 3
-    // -------------------------
-    if (oldVersion < 3) {
-      final tables = await db.rawQuery(
-        "SELECT name FROM sqlite_master "
-        "WHERE type='table' AND name='recipes'",
-      );
-
-      if (tables.isEmpty) {
-        await _createRecipesTable(db);
+      )) {
+        await db.execute('''
+          ALTER TABLE users
+          ADD COLUMN phone TEXT NOT NULL DEFAULT ''
+        ''');
       }
     }
 
-    // -------------------------
-    // Version 4
-    // -------------------------
+    // ----------------------------------------------------------
+    // VERSION 3
+    // ----------------------------------------------------------
+
+    if (oldVersion < 3) {
+      await _createRecipesTable(db);
+    }
+
+    // ----------------------------------------------------------
+    // VERSION 4
+    // Add timestamps
+    // ----------------------------------------------------------
+
     if (oldVersion < 4) {
-      await _addColumnIfMissing(
+      if (!await _columnExists(
         db,
         'recipes',
         'created_at',
-        "TEXT NOT NULL DEFAULT ''",
-      );
+      )) {
+        await db.execute('''
+          ALTER TABLE recipes
+          ADD COLUMN created_at TEXT NOT NULL DEFAULT ''
+        ''');
+      }
 
-      await _addColumnIfMissing(
+      if (!await _columnExists(
         db,
         'recipes',
         'updated_at',
-        "TEXT NOT NULL DEFAULT ''",
-      );
+      )) {
+        await db.execute('''
+          ALTER TABLE recipes
+          ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''
+        ''');
+      }
     }
 
-    // -------------------------
-    // Version 5
-    // -------------------------
+    // ----------------------------------------------------------
+    // VERSION 5
+    // Add presentation_instructions
+    // ----------------------------------------------------------
+
     if (oldVersion < 5) {
-      await _addColumnIfMissing(
+      if (!await _columnExists(
         db,
         'recipes',
         'presentation_instructions',
-        "TEXT NOT NULL DEFAULT ''",
-      );
+      )) {
+        await db.execute('''
+          ALTER TABLE recipes
+          ADD COLUMN presentation_instructions
+          TEXT NOT NULL DEFAULT ''
+        ''');
+      }
     }
 
-    // -------------------------
-    // Version 6
-    // -------------------------
+    // ----------------------------------------------------------
+    // VERSION 6
+    //
+    // FINAL FIX
+    //
+    // If presentation_instructions already exists as:
+    //
+    // TEXT NOT NULL
+    //
+    // without a default value, simply adding a column is not
+    // enough.
+    //
+    // We rebuild the recipes table with DEFAULT ''.
+    // ----------------------------------------------------------
+
     if (oldVersion < 6) {
-      await _ensureAllRecipeColumns(db);
+      await _repairRecipesTable(db);
     }
 
-    // -------------------------
-    // Version 7
-    // FINAL REPAIR
-    // -------------------------
-    if (oldVersion < 7) {
-      await _ensureAllRecipeColumns(db);
-    }
+    // ----------------------------------------------------------
+    // Make sure all columns exist
+    // ----------------------------------------------------------
 
-    // Make sure every recipe row has timestamps.
-    await db.execute('''
-      UPDATE recipes
-      SET created_at = ?
-      WHERE created_at IS NULL OR created_at = ''
-    ''', [DateTime.now().toIso8601String()]);
+    await _ensureAllRecipeColumns(db);
 
-    await db.execute('''
-      UPDATE recipes
-      SET updated_at = ?
-      WHERE updated_at IS NULL OR updated_at = ''
-    ''', [DateTime.now().toIso8601String()]);
-  }
+    // ----------------------------------------------------------
+    // Fix empty timestamps
+    // ----------------------------------------------------------
 
-  // ============================================================
-  // CREATE RECIPES TABLE
-  // ============================================================
+    final now =
+        DateTime.now().toIso8601String();
 
-  Future<void> _createRecipesTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS recipes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL DEFAULT '',
-        category TEXT NOT NULL DEFAULT '',
-        description TEXT NOT NULL DEFAULT '',
-        image TEXT NOT NULL DEFAULT '',
-        preparation_time INTEGER NOT NULL DEFAULT 0,
-        ingredients TEXT NOT NULL DEFAULT '',
-        preparation_steps TEXT NOT NULL DEFAULT '',
-        cooking_instructions TEXT NOT NULL DEFAULT '',
-        presentation_instructions TEXT NOT NULL DEFAULT '',
-        storage_instructions TEXT NOT NULL DEFAULT '',
-        freezing_instructions TEXT NOT NULL DEFAULT '',
-        thawing_instructions TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL DEFAULT ''
-      )
-    ''');
-  }
-
-  // ============================================================
-  // ADD COLUMN ONLY IF IT DOES NOT EXIST
-  // ============================================================
-
-  Future<void> _addColumnIfMissing(
-    Database db,
-    String table,
-    String column,
-    String definition,
-  ) async {
-    final columns = await db.rawQuery(
-      'PRAGMA table_info($table)',
+    await db.update(
+      'recipes',
+      {
+        'created_at': now,
+        'updated_at': now,
+      },
+      where:
+          "created_at = '' OR updated_at = ''",
     );
+  }
 
-    final exists = columns.any(
-      (columnInfo) => columnInfo['name'] == column,
+  // ============================================================
+  // REPAIR RECIPES TABLE
+  // ============================================================
+
+  Future<void> _repairRecipesTable(
+    Database db,
+  ) async {
+    final exists = await _tableExists(
+      db,
+      'recipes',
     );
 
     if (!exists) {
-      await db.execute(
-        'ALTER TABLE $table ADD COLUMN $column $definition',
-      );
-    }
-  }
-
-  // ============================================================
-  // ENSURE ALL RECIPE COLUMNS EXIST
-  // ============================================================
-
-  Future<void> _ensureAllRecipeColumns(Database db) async {
-    final recipesTable = await db.rawQuery(
-      "SELECT name FROM sqlite_master "
-      "WHERE type='table' AND name='recipes'",
-    );
-
-    if (recipesTable.isEmpty) {
       await _createRecipesTable(db);
       return;
     }
 
-    await _addColumnIfMissing(
-      db,
-      'name',
-      'name',
-      "TEXT NOT NULL DEFAULT ''",
+    // Get current columns
+    final columns =
+        await db.rawQuery(
+      'PRAGMA table_info(recipes)',
     );
 
-    await _addColumnIfMissing(
-      db,
-      'category',
-      'category',
-      "TEXT NOT NULL DEFAULT ''",
-    );
+    final columnNames = columns
+        .map(
+          (row) => row['name'].toString(),
+        )
+        .toSet();
 
-    await _addColumnIfMissing(
-      db,
-      'description',
-      'description',
-      "TEXT NOT NULL DEFAULT ''",
-    );
+    // ----------------------------------------------------------
+    // Create temporary table
+    // ----------------------------------------------------------
 
-    await _addColumnIfMissing(
-      db,
-      'image',
-      'image',
-      "TEXT NOT NULL DEFAULT ''",
-    );
+    await db.execute('''
+      CREATE TABLE recipes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+        name TEXT NOT NULL DEFAULT '',
+
+        category TEXT NOT NULL DEFAULT '',
+
+        description TEXT NOT NULL DEFAULT '',
+
+        image TEXT NOT NULL DEFAULT '',
+
+        preparation_time INTEGER NOT NULL DEFAULT 0,
+
+        ingredients TEXT NOT NULL DEFAULT '',
+
+        preparation_steps TEXT NOT NULL DEFAULT '',
+
+        cooking_instructions TEXT NOT NULL DEFAULT '',
+
+        presentation_instructions
+          TEXT NOT NULL DEFAULT '',
+
+        storage_instructions
+          TEXT NOT NULL DEFAULT '',
+
+        freezing_instructions
+          TEXT NOT NULL DEFAULT '',
+
+        thawing_instructions
+          TEXT NOT NULL DEFAULT '',
+
+        created_at TEXT NOT NULL DEFAULT '',
+
+        updated_at TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+
+    // ----------------------------------------------------------
+    // Build SELECT values for old table
+    // ----------------------------------------------------------
+
+    String valueOrDefault(
+      String column,
+      String defaultValue,
+    ) {
+      if (columnNames.contains(column)) {
+        return column;
+      }
+
+      return defaultValue;
+    }
+
+    final name =
+        valueOrDefault('name', "''");
+
+    final category =
+        valueOrDefault('category', "''");
+
+    final description =
+        valueOrDefault('description', "''");
+
+    final image =
+        valueOrDefault('image', "''");
+
+    final preparationTime =
+        valueOrDefault(
       'preparation_time',
-      "INTEGER NOT NULL DEFAULT 0",
+      '0',
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final ingredients =
+        valueOrDefault(
       'ingredients',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final preparationSteps =
+        valueOrDefault(
       'preparation_steps',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final cookingInstructions =
+        valueOrDefault(
       'cooking_instructions',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    // IMPORTANT:
-    // This is the column causing your current error.
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final presentationInstructions =
+        valueOrDefault(
       'presentation_instructions',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final storageInstructions =
+        valueOrDefault(
       'storage_instructions',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final freezingInstructions =
+        valueOrDefault(
       'freezing_instructions',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final thawingInstructions =
+        valueOrDefault(
       'thawing_instructions',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final createdAt =
+        valueOrDefault(
       'created_at',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
 
-    await _addColumnIfMissing(
-      db,
-      'recipes',
+    final updatedAt =
+        valueOrDefault(
       'updated_at',
-      "TEXT NOT NULL DEFAULT ''",
+      "''",
     );
+
+    // ----------------------------------------------------------
+    // COPY OLD DATA
+    // ----------------------------------------------------------
+
+    await db.execute('''
+      INSERT INTO recipes_new (
+        id,
+        name,
+        category,
+        description,
+        image,
+        preparation_time,
+        ingredients,
+        preparation_steps,
+        cooking_instructions,
+        presentation_instructions,
+        storage_instructions,
+        freezing_instructions,
+        thawing_instructions,
+        created_at,
+        updated_at
+      )
+      SELECT
+        id,
+        $name,
+        $category,
+        $description,
+        $image,
+        $preparationTime,
+        $ingredients,
+        $preparationSteps,
+        $cookingInstructions,
+        $presentationInstructions,
+        $storageInstructions,
+        $freezingInstructions,
+        $thawingInstructions,
+        $createdAt,
+        $updatedAt
+      FROM recipes
+    ''');
+
+    // ----------------------------------------------------------
+    // DELETE OLD TABLE
+    // ----------------------------------------------------------
+
+    await db.execute(
+      'DROP TABLE recipes',
+    );
+
+    // ----------------------------------------------------------
+    // RENAME NEW TABLE
+    // ----------------------------------------------------------
+
+    await db.execute('''
+      ALTER TABLE recipes_new
+      RENAME TO recipes
+    ''');
+  }
+
+  // ============================================================
+  // CHECK TABLE
+  // ============================================================
+
+  Future<bool> _tableExists(
+    Database db,
+    String table,
+  ) async {
+    final result = await db.rawQuery(
+      '''
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+      AND name = ?
+      ''',
+      [table],
+    );
+
+    return result.isNotEmpty;
+  }
+
+  // ============================================================
+  // CHECK COLUMN
+  // ============================================================
+
+  Future<bool> _columnExists(
+    Database db,
+    String table,
+    String column,
+  ) async {
+    final result =
+        await db.rawQuery(
+      'PRAGMA table_info($table)',
+    );
+
+    return result.any(
+      (row) =>
+          row['name'].toString() ==
+          column,
+    );
+  }
+
+  // ============================================================
+  // ENSURE ALL RECIPE COLUMNS
+  // ============================================================
+
+  Future<void> _ensureAllRecipeColumns(
+    Database db,
+  ) async {
+    final columns = {
+      'name':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'category':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'description':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'image':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'preparation_time':
+          "INTEGER NOT NULL DEFAULT 0",
+
+      'ingredients':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'preparation_steps':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'cooking_instructions':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'presentation_instructions':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'storage_instructions':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'freezing_instructions':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'thawing_instructions':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'created_at':
+          "TEXT NOT NULL DEFAULT ''",
+
+      'updated_at':
+          "TEXT NOT NULL DEFAULT ''",
+    };
+
+    for (final entry in columns.entries) {
+      final exists =
+          await _columnExists(
+        db,
+        'recipes',
+        entry.key,
+      );
+
+      if (!exists) {
+        await db.execute('''
+          ALTER TABLE recipes
+          ADD COLUMN ${entry.key}
+          ${entry.value}
+        ''');
+      }
+    }
   }
 
   // ============================================================
   // DEFAULT USERS
   // ============================================================
 
-  Future<void> _createDefaultUsers(Database db) async {
-    final countResult = await db.rawQuery(
+  Future<void> _createDefaultUsers(
+    Database db,
+  ) async {
+    final countResult =
+        await db.rawQuery(
       'SELECT COUNT(*) as count FROM users',
     );
 
-    final count = Sqflite.firstIntValue(countResult) ?? 0;
+    final count =
+        Sqflite.firstIntValue(
+              countResult,
+            ) ??
+            0;
 
     if (count > 0) {
       return;
     }
 
     await db.insert('users', {
-      'name': 'Owner',
-      'phone': '',
-      'email': 'owner@kitchenops.com',
+      'name': 'Kitchen Owner',
+      'phone': '03000000000',
+      'email':
+          'owner@kitchenops.com',
       'password': '123456',
       'role': 'owner',
     });
 
     await db.insert('users', {
       'name': 'Chef Master',
-      'phone': '',
-      'email': 'chef@kitchenops.com',
+      'phone': '03000000001',
+      'email':
+          'chef@kitchenops.com',
       'password': '123456',
       'role': 'chef_master',
     });
 
     await db.insert('users', {
       'name': 'Kitchen Staff',
-      'phone': '',
-      'email': 'staff@kitchenops.com',
+      'phone': '03000000002',
+      'email':
+          'staff@kitchenops.com',
       'password': '123456',
       'role': 'staff',
     });
   }
 
   // ============================================================
-  // SAMPLE RECIPES
+  // SEED RECIPES
   // ============================================================
 
-  Future<void> _seedRecipes(Database db) async {
-    final countResult = await db.rawQuery(
+  Future<void> _seedRecipes(
+    Database db,
+  ) async {
+    final result =
+        await db.rawQuery(
       'SELECT COUNT(*) as count FROM recipes',
     );
 
-    final count = Sqflite.firstIntValue(countResult) ?? 0;
+    final count =
+        Sqflite.firstIntValue(
+              result,
+            ) ??
+            0;
 
     if (count > 0) {
       return;
     }
 
-    final now = DateTime.now().toIso8601String();
+    final now =
+        DateTime.now()
+            .toIso8601String();
 
     await db.insert('recipes', {
-      'name': 'Classic Beef Burger',
-      'category': 'Burgers',
-      'description': 'Classic restaurant style beef burger.',
-      'image': 'assets/images/burger.jpg',
-      'preparation_time': 15,
-      'ingredients':
-          'Beef patty, burger bun, lettuce, tomato, cheese, sauce',
-      'preparation_steps':
-          'Prepare beef patty. Cut vegetables. Prepare bun.',
-      'cooking_instructions':
-          'Cook beef patty until fully cooked.',
-      'presentation_instructions':
-          'Place patty inside bun and arrange vegetables neatly.',
+      'name':
+          'Classic Beef Burger',
+
+      'category':
+          'Burgers',
+
+      'description':
+          'A classic restaurant-style beef burger.',
+
+      'image':
+          'assets/images/burger.jpg',
+
+      'preparation_time':
+          15,
+
+      'ingredients': '''
+Beef patty
+Burger bun
+Lettuce
+Tomato
+Onion
+Cheese
+Burger sauce
+Salt
+Black pepper
+''',
+
+      'preparation_steps': '''
+Prepare the beef patty.
+Season with salt and black pepper.
+Slice the vegetables.
+Prepare the burger sauce.
+Toast the burger bun.
+''',
+
+      'cooking_instructions': '''
+Cook the beef patty on the grill or pan.
+Cook both sides until properly done.
+Add cheese.
+Toast the burger bun.
+''',
+
+      'presentation_instructions': '''
+Place the burger on a clean plate.
+Add the required garnish.
+Serve immediately.
+''',
+
       'storage_instructions':
-          'Store ingredients in refrigerator.',
+          'Store ingredients in refrigerated containers.',
+
       'freezing_instructions':
-          'Freeze uncooked patties in sealed packaging.',
+          'Raw beef patties can be frozen in sealed packaging.',
+
       'thawing_instructions':
-          'Thaw patties in refrigerator before cooking.',
+          'Thaw frozen patties inside the refrigerator.',
+
       'created_at': now,
+
       'updated_at': now,
     });
 
     await db.insert('recipes', {
-      'name': 'Chicken Pizza',
-      'category': 'Pizza',
-      'description': 'Restaurant style chicken pizza.',
-      'image': 'assets/images/pizza.jpg',
-      'preparation_time': 20,
-      'ingredients':
-          'Pizza dough, chicken, cheese, tomato sauce, vegetables',
-      'preparation_steps':
-          'Prepare dough. Add sauce. Add chicken and vegetables.',
-      'cooking_instructions':
-          'Bake pizza until cheese is melted and crust is cooked.',
-      'presentation_instructions':
-          'Cut pizza into equal slices and serve neatly.',
+      'name':
+          'Chicken Pizza',
+
+      'category':
+          'Pizza',
+
+      'description':
+          'Restaurant-style chicken pizza.',
+
+      'image':
+          'assets/images/pizza.jpg',
+
+      'preparation_time':
+          25,
+
+      'ingredients': '''
+Pizza dough
+Pizza sauce
+Chicken
+Mozzarella cheese
+Capsicum
+Onion
+Olives
+Oregano
+Chilli flakes
+''',
+
+      'preparation_steps': '''
+Prepare the pizza dough.
+Spread pizza sauce.
+Add cooked chicken.
+Add vegetables.
+Add mozzarella cheese.
+''',
+
+      'cooking_instructions': '''
+Preheat the oven.
+Place the pizza in the oven.
+Bake until the crust is golden.
+Remove and slice.
+''',
+
+      'presentation_instructions': '''
+Place pizza on a clean serving plate.
+Cut into equal slices.
+Serve hot.
+''',
+
       'storage_instructions':
-          'Store prepared ingredients in refrigerator.',
+          'Store prepared ingredients in refrigerated containers.',
+
       'freezing_instructions':
-          'Pizza can be frozen in sealed packaging.',
+          'Pizza dough can be frozen in sealed packaging.',
+
       'thawing_instructions':
-          'Thaw frozen pizza in refrigerator before reheating.',
+          'Thaw frozen dough in the refrigerator.',
+
       'created_at': now,
+
       'updated_at': now,
     });
   }
@@ -450,7 +789,8 @@ class DatabaseHelper {
 
     final result = await db.query(
       'users',
-      where: 'email = ? AND password = ? AND role = ?',
+      where:
+          'email = ? AND password = ? AND role = ?',
       whereArgs: [
         email.trim(),
         password,
@@ -467,14 +807,41 @@ class DatabaseHelper {
   }
 
   // ============================================================
-  // CHECK EMAIL
+  // GET USER BY ID
   // ============================================================
 
-  Future<bool> emailExists(String email) async {
+  Future<Map<String, dynamic>?>
+      getUserById(
+    int id,
+  ) async {
     final db = await database;
 
     final result = await db.query(
       'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result.first;
+  }
+
+  // ============================================================
+  // EMAIL EXISTS
+  // ============================================================
+
+  Future<bool> emailExists(
+    String email,
+  ) async {
+    final db = await database;
+
+    final result = await db.query(
+      'users',
+      columns: ['id'],
       where: 'email = ?',
       whereArgs: [email.trim()],
       limit: 1,
@@ -505,7 +872,8 @@ class DatabaseHelper {
         'password': password,
         'role': role,
       },
-      conflictAlgorithm: ConflictAlgorithm.abort,
+      conflictAlgorithm:
+          ConflictAlgorithm.abort,
     );
   }
 
@@ -513,7 +881,8 @@ class DatabaseHelper {
   // GET ALL RECIPES
   // ============================================================
 
-  Future<List<Map<String, dynamic>>> getAllRecipes() async {
+  Future<List<Map<String, dynamic>>>
+      getAllRecipes() async {
     final db = await database;
 
     return await db.query(
@@ -523,10 +892,13 @@ class DatabaseHelper {
   }
 
   // ============================================================
-  // GET ONE RECIPE
+  // GET RECIPE BY ID
   // ============================================================
 
-  Future<Map<String, dynamic>?> getRecipeById(int id) async {
+  Future<Map<String, dynamic>?>
+      getRecipeById(
+    int id,
+  ) async {
     final db = await database;
 
     final result = await db.query(
@@ -556,50 +928,62 @@ class DatabaseHelper {
     required String ingredients,
     required String preparationSteps,
     required String cookingInstructions,
-
-    // IMPORTANT:
-    // Optional so old CreateRecipeScreen code will also work.
     String presentationInstructions = '',
-
     required String storageInstructions,
     required String freezingInstructions,
     required String thawingInstructions,
   }) async {
     final db = await database;
 
-    final now = DateTime.now().toIso8601String();
-
-    final data = <String, dynamic>{
-      'name': name.trim(),
-      'category': category.trim(),
-      'description': description.trim(),
-      'image': image.trim(),
-      'preparation_time': preparationTime,
-      'ingredients': ingredients.trim(),
-      'preparation_steps': preparationSteps.trim(),
-      'cooking_instructions': cookingInstructions.trim(),
-
-      // VERY IMPORTANT
-      'presentation_instructions':
-          presentationInstructions.trim(),
-
-      'storage_instructions': storageInstructions.trim(),
-      'freezing_instructions': freezingInstructions.trim(),
-      'thawing_instructions': thawingInstructions.trim(),
-      'created_at': now,
-      'updated_at': now,
-    };
-
-    print('======================================');
-    print('KITCHENOPS INSERT RECIPE');
-    print('Data being inserted:');
-    print(data);
-    print('======================================');
+    final now =
+        DateTime.now()
+            .toIso8601String();
 
     return await db.insert(
       'recipes',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.abort,
+      {
+        'name':
+            name.trim(),
+
+        'category':
+            category.trim(),
+
+        'description':
+            description.trim(),
+
+        'image':
+            image.trim(),
+
+        'preparation_time':
+            preparationTime,
+
+        'ingredients':
+            ingredients.trim(),
+
+        'preparation_steps':
+            preparationSteps.trim(),
+
+        'cooking_instructions':
+            cookingInstructions.trim(),
+
+        'presentation_instructions':
+            presentationInstructions.trim(),
+
+        'storage_instructions':
+            storageInstructions.trim(),
+
+        'freezing_instructions':
+            freezingInstructions.trim(),
+
+        'thawing_instructions':
+            thawingInstructions.trim(),
+
+        'created_at':
+            now,
+
+        'updated_at':
+            now,
+      },
     );
   }
 
@@ -624,25 +1008,51 @@ class DatabaseHelper {
   }) async {
     final db = await database;
 
-    final now = DateTime.now().toIso8601String();
+    final now =
+        DateTime.now()
+            .toIso8601String();
 
     return await db.update(
       'recipes',
       {
-        'name': name.trim(),
-        'category': category.trim(),
-        'description': description.trim(),
-        'image': image.trim(),
-        'preparation_time': preparationTime,
-        'ingredients': ingredients.trim(),
-        'preparation_steps': preparationSteps.trim(),
-        'cooking_instructions': cookingInstructions.trim(),
+        'name':
+            name.trim(),
+
+        'category':
+            category.trim(),
+
+        'description':
+            description.trim(),
+
+        'image':
+            image.trim(),
+
+        'preparation_time':
+            preparationTime,
+
+        'ingredients':
+            ingredients.trim(),
+
+        'preparation_steps':
+            preparationSteps.trim(),
+
+        'cooking_instructions':
+            cookingInstructions.trim(),
+
         'presentation_instructions':
             presentationInstructions.trim(),
-        'storage_instructions': storageInstructions.trim(),
-        'freezing_instructions': freezingInstructions.trim(),
-        'thawing_instructions': thawingInstructions.trim(),
-        'updated_at': now,
+
+        'storage_instructions':
+            storageInstructions.trim(),
+
+        'freezing_instructions':
+            freezingInstructions.trim(),
+
+        'thawing_instructions':
+            thawingInstructions.trim(),
+
+        'updated_at':
+            now,
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -653,7 +1063,9 @@ class DatabaseHelper {
   // DELETE RECIPE
   // ============================================================
 
-  Future<int> deleteRecipe(int id) async {
+  Future<int> deleteRecipe(
+    int id,
+  ) async {
     final db = await database;
 
     return await db.delete(
@@ -661,22 +1073,5 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
-  }
-
-  // ============================================================
-  // DEBUG DATABASE SCHEMA
-  // ============================================================
-
-  Future<void> debugRecipeColumns() async {
-    final db = await database;
-
-    final columns = await db.rawQuery(
-      'PRAGMA table_info(recipes)',
-    );
-
-    print('======================================');
-    print('KITCHENOPS RECIPES TABLE');
-    print(columns);
-    print('======================================');
   }
 }
